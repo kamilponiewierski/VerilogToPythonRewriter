@@ -127,3 +127,7 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Lexer/parser outputs
+parser.out
+parsetab.py
