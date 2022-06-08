@@ -61,14 +61,8 @@ def t_newline(t):
     t.lexer.lineno += len(t.value)
 
 
-def t_NUM(t):
-    r'(MINUS|PLUS)?[0-9]*SEP((b)(0-1)*|(o)(0-7)*|(d)(0-9)*|(h)(0-9|a-f|A-F))'
-    return t
-
-
 def t_NUMBER(t):
-    r'\d+'
-    t.value = int(t.value)
+    r'(-|\+)?[0-9]*`((b)([0-1])|(o)([0-7])*|(d)([0-9])*|(h)([0-9|a-f|A-F])*)'
     return t
 
 
@@ -120,6 +114,8 @@ endmodule
     input [7:0] X,    
     output [7:0] Y
 );
+  
+1`b0
 reg [7:0] val = 0;
 always @(posedge clk)
 begin
