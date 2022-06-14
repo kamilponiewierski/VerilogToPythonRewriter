@@ -54,6 +54,7 @@ def get_tokens():
         'CWB',
         'PLUS',
         'MINUS',
+        'TIMES',
         'CLN',
         'SCLN',
         'EQ',
@@ -64,5 +65,8 @@ def get_tokens():
         'ID',
         'NUMBER',
         'SIZE',
+        'BIN_OPERATOR',
+        'CONCATENATION_BODY',
+        'SYNCH_ASSIGN',
     )
     return tokens
