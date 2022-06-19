@@ -34,6 +34,8 @@ t_LT = r'<'
 t_GT = r'>'
 synch_assign = r'(' + t_LT + t_EQ + r')'
 bin_operator = r'(' + t_OR + r'|' + t_AND + r'|' + t_PLUS + r'|' + t_MINUS + r'|' + t_TIMES + r')'
+comparison_symbol = r'(' + t_EQ + t_EQ + r'|' + t_GT + r'|' + t_LT + r'|' + t_GT + t_EQ + \
+                    r'|' + t_LT + t_EQ + '|' + t_EM + t_EQ + r')'
 ID = r'[a-zA-Z_][a-zA-Z_0-9]*'
 # TODO
 concatenation_body = r'(' + ID + t_COM + 'r)*' + ID + r'|(0-9)* ' + t_OWB + ID + t_CWB + ')'
@@ -94,7 +96,7 @@ def t_SYNCH_ASSIGN(t):
 
 # Parsing rules
 def p_condition(p):
-    '''expression : value comparison value
+    '''condition : value comparison value
                   | value
        comparison : EQ EQ
                   | GT
@@ -106,31 +108,83 @@ def p_condition(p):
     return p
 
 
-def p_expression_genvar_statement(p):
-    'expression : GENVAR ID SCLN'
+def p_genvar_statement(p):
+    'genvar_statement : GENVAR ID SCLN'
     return p
 
 
-def p_term_concatenation(p):
-    '''expression : OWB CONCATENATION_BODY CWB'''
+def p_concatenation(p):
+    '''concatenation : OWB CONCATENATION_BODY CWB'''
     return p
 
 
-def p_term_value(p):
-    '''term : value BIN_OPERATOR value
-                  | NOT value
-                  | concatenation
-                  | NUMBER
-                  | ID
-                  | OB value CB'''
+def p_value(p):
+    '''value : value BIN_OPERATOR value
+             | NOT value
+             | concatenation
+             | NUMBER
+             | ID
+             | OB value CB'''
     return p
 
 
-def p_term_edge(p):
-    '''sign : POS
-            | NEG
-       term : sign EDGE
+@TOKEN(comparison_symbol)
+def t_COMPARISON_SYMBOL(t):
+    return t
+
+
+def p_while_condition(p):
+    '''while_condition : WHILE OB condition CB
     '''
+    return p
+
+
+def p_begin_synch_end(p):
+    '''begin_synch_end : BEGIN synch_stmts END
+    '''
+    return p
+
+
+def p_initial_stmt(p):
+    '''initial_stmt : INITIAL synch_stmt
+                    | INITIAL begin_synch_end
+    '''
+
+
+def p_synch_stmt(p):
+    '''synch_stmt : content SCLN COMMENT
+                  | content SCLN
+       content : initial_stmt
+               | Reg_assign
+               | If_else_statement
+               | Case_statement
+               | Tenary_operator
+               | Wait
+               | Generate_part
+               | For_loop
+               | While_loop
+    '''
+    return p
+
+
+def p_synch_stmts(p):
+    '''synch_stmts : synch_stmts synch_stmt
+                   | synch_stmt
+    '''
+    return p
+
+
+def p_tenary_operator(p):
+    '''tenary_operator : OB condition CB QM value CLN value
+    '''
+    return p
+
+
+def p_if_cond(p):
+    '''if_cond : IF OB condition CB synch_stmt
+               | BEGIN synch_stmts END
+    '''
+    return p
 
 
 def p_empty(p):
@@ -148,7 +202,7 @@ def p_error(p):
 
 
 def p_term_wire_declaration(p):
-    '''expression : WIRE opt_size ID opt_size
+    '''term_wire_declaration : WIRE opt_size ID opt_size
        opt_size   : SIZE
                   | empty
     '''
@@ -156,7 +210,7 @@ def p_term_wire_declaration(p):
 
 
 def p_term_assign(p):
-    'expression : ID EQ ID BIN_OPERATOR value'
+    'term_assign : ID EQ ID BIN_OPERATOR value'
     return p
 
 

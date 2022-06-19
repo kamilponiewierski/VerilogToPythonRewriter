@@ -68,5 +68,6 @@ def get_tokens():
         'BIN_OPERATOR',
         'CONCATENATION_BODY',
         'SYNCH_ASSIGN',
+        'COMPARISON_SYMBOL',
     )
     return tokens
