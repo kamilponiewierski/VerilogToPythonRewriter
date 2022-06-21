@@ -108,20 +108,9 @@ def p_condition(p):
     return p
 
 
-def p_genvar_statement(p):
-    'genvar_statement : GENVAR ID SCLN'
-    return p
-
-
-def p_concatenation(p):
-    '''concatenation : OWB CONCATENATION_BODY CWB'''
-    return p
-
-
 def p_value(p):
     '''value : value BIN_OPERATOR value
              | NOT value
-             | concatenation
              | NUMBER
              | ID
              | OB value CB'''
@@ -131,12 +120,6 @@ def p_value(p):
 @TOKEN(comparison_symbol)
 def t_COMPARISON_SYMBOL(t):
     return t
-
-
-def p_while_condition(p):
-    '''while_condition : WHILE OB condition CB
-    '''
-    return p
 
 
 def p_begin_synch_end(p):
@@ -149,22 +132,24 @@ def p_initial_stmt(p):
     '''initial_stmt : INITIAL synch_stmt
                     | INITIAL begin_synch_end
     '''
+    return p
 
 
 def p_synch_stmt(p):
     '''synch_stmt : content SCLN COMMENT
                   | content SCLN
        content : initial_stmt
-               | Reg_assign
-               | If_else_statement
-               | Case_statement
-               | Tenary_operator
+               | reg_assign
+               | tenary_operator
                | Wait
-               | Generate_part
-               | For_loop
-               | While_loop
     '''
     return p
+
+
+def p_reg_assign(p):
+    '''reg_assign : ID SYNCH_ASSIGN ID
+                  | ID SYNCH_ASSIGN value
+    '''
 
 
 def p_synch_stmts(p):
@@ -174,15 +159,58 @@ def p_synch_stmts(p):
     return p
 
 
-def p_tenary_operator(p):
-    '''tenary_operator : OB condition CB QM value CLN value
+def p_wire_declaraion(p):
+    '''wire_declaration : WIRE ID
     '''
     return p
 
 
-def p_if_cond(p):
-    '''if_cond : IF OB condition CB synch_stmt
-               | BEGIN synch_stmts END
+def p_reg_declaration(p):
+    '''reg_declaration : REG ID
+    '''
+    return p
+
+
+def p_tenary_operator(p):
+    '''tenary_operator : OB condition CB QM value CLN value
+    '''
+    p[0] = f'if ({p[2]}):\n\t{p[5]}\nelse:\n\t{p[7]}'
+    return p
+
+
+# TODO
+def p_body(p):
+    '''body : body part
+            | part
+            | empty
+       part : declaration
+            | Synch_part
+            | Asynch_part
+            | COMMENT
+    '''
+    return p
+
+
+def p_module_declaration(p):
+    '''module_declaration : MODULE ID body ENDMODULE
+                          | MODULE ID optional_module_parameters body ENDMODULE
+       optional_module_parameters : parameters_declaration ports_declaration
+                                  | parameters_declaration
+                                  | ports_declaration
+
+    '''
+    return p
+
+
+def p_ports_declaration(p):
+    '''ports_declaration : OB inputs CB
+       io : INPUT
+          | OUTPUT
+          | INOUT
+       input : io SIZE ID
+             | io ID
+       inputs : inputs COM input
+              | input
     '''
     return p
 
@@ -203,14 +231,14 @@ def p_error(p):
 
 def p_term_wire_declaration(p):
     '''term_wire_declaration : WIRE opt_size ID opt_size
-       opt_size   : SIZE
-                  | empty
+       opt_size : SIZE
+                | empty
     '''
     return p
 
 
-def p_term_assign(p):
-    'term_assign : ID EQ ID BIN_OPERATOR value'
+def p_assign(p):
+    'assign : ID EQ ID BIN_OPERATOR value'
     return p
 
 
