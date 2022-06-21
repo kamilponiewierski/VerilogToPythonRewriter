@@ -141,10 +141,10 @@ class Module:
         self._initialize_wires()
 
     def _initialize_wires(self):
-        for name, wire in self.inputs.items():
-            self.module_wires[name] = wire
-        for name, wire in self.outputs.items():
-            self.module_wires[name] = wire
+        for name in self.inputs():
+            self.module_wires[name] = Wire(1)
+        for name in self.outputs:
+            self.module_wires[name] = Wire(1)
 
     def add_synchronous_block(self, block):
         self.synchronous_block = block

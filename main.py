@@ -1,3 +1,4 @@
+import os
 import re
 
 import ply.yacc as yacc
@@ -12,7 +13,7 @@ reserved = reserved_keywords()
 tokens = list(get_tokens()) + list(reserved.values())
 t_SEP = r'`'
 t_HASH = r'\#'
-t_SLASH = r'/'
+t_SLASH = r'\/'
 t_DOT = r'\.'
 t_COM = r','
 t_AND = r'&'
@@ -58,6 +59,7 @@ def t_error(t):
 t_ignore = ' \t'
 
 module_name = ""
+out_file = None
 start = 'module_declaration'
 
 
@@ -79,7 +81,7 @@ def t_CONCATENATION_BODY(t):
 
 @TOKEN(comment)
 def t_COMMENT(t):
-    return t
+    pass
 
 
 @TOKEN(integer)
@@ -124,7 +126,8 @@ def p_condition(p):
                   | LT EQ
                   | EM EQ
     '''
-    p[0] = f'condition({p[1]}, {p[2]}, {p[3]})'
+    p[0] = f'condition({p[1]}, {p[2]}, {p[3]})\n'
+    out_file.write(p[0])
     return p
 
 
@@ -137,10 +140,11 @@ def p_value(p):
              | ternary_operator
     '''
     if len(p) == 3 and re.match(bin_operator, p[2]):
-        p[0] = f'binary_operator({p[1]}, {p[2]}, {p[3]})'
+        p[0] = f'binary_operator({p[1]}, {p[2]}, {p[3]})\n'
+        out_file.write(p[0])
+
     else:
-        # TODO
-        pass
+        p[0] = p[1]
     return p
 
 
@@ -149,24 +153,9 @@ def t_COMPARISON_SYMBOL(t):
     return t
 
 
-def p_begin_synch_end(p):
-    '''begin_synch_end : BEGIN synch_stmts END
-    '''
-    return p
-
-
-def p_initial_stmt(p):
-    '''initial_stmt : INITIAL synch_stmt
-                    | INITIAL begin_synch_end
-    '''
-    return p
-
-
 def p_synch_stmt(p):
-    '''synch_stmt : content SCLN COMMENT
-                  | content SCLN
-       content : initial_stmt
-               | reg_assign
+    '''synch_stmt : content SCLN
+       content : reg_assign
                | ternary_operator
     '''
     return p
@@ -183,24 +172,32 @@ def p_wire_declaration(p):
     '''wire_declaration : WIRE ID
     '''
     p[0] = f'{module_name}.add_wire({p[2]}, Wire(1))'
+    out_file.write(p[0])
     return p
 
 
 # TODO
 def p_wire_assign(p):
     '''wire_assign : ASSIGN ID EQ wire_assignable
-       wire_assignable : ID
-                       | value
     '''
-    p[0] = f'{module_name}.assign({p[0]}, assignable)'
+    p[0] = f'{module_name}.assign("{p[2]}", "{p[4]}")\n'
+    out_file.write(p[0])
+    return p
+
+
+def p_wire_assignable(p):
+    '''wire_assignable : ID
+                       | value'''
+    p[0] = p[1]
     return p
 
 
 def p_reg_declaration(p):
-    '''reg_declaration : REG ID
+    '''reg_declaration : REG ID SCLN
     '''
 
-    x = f'{module_name}.add_register(ID, Register(1))'
+    p[0] = f'{module_name}.add_register("{p[2]}", Register(1))\n'
+    out_file.write(p[0])
     return p
 
 
@@ -216,7 +213,7 @@ def p_reg_assign(p):
 def p_ternary_operator(p):
     '''ternary_operator : OB condition CB QM value CLN value
     '''
-    p[0] = f'ternary_operator({p[2]}, {p[5]}, {p[7]})'
+    p[0] = f'ternary_operator({p[2]}, {p[5]}, {p[7]})\n'
     return p
 
 
@@ -237,7 +234,6 @@ def p_body(p):
        part : declaration
             | synch_part
             | asynch_part
-            | COMMENT
     '''
     return p
 
@@ -256,8 +252,7 @@ def p_synch_part(p):
 
 
 def p_asynch_statement(p):
-    '''asynch_statement : asynch_body SCLN COMMENT
-                        | asynch_body SCLN
+    '''asynch_statement : asynch_body SCLN
        asynch_body : wire_assign
                    | ternary_operator
     '''
@@ -273,24 +268,77 @@ def p_asynch_part(p):
 
 
 def p_module_declaration(p):
-    '''module_declaration : MODULE ID body ENDMODULE
-                          | MODULE ID ports_declaration body ENDMODULE
+    '''module_declaration : MODULE ID ports_declaration SCLN body ENDMODULE
+                          | MODULE ID body ENDMODULE
+
     '''
     global module_name
     module_name = p[2]
+    if len(p) == 7:
+        ins, outs = p[3]
+        ins = list(map(lambda io: io[1], ins))
+        outs = list(map(lambda io: io[1], outs))
+    else:
+        ins, outs = ([], [])
+
+    p[0] = f'{module_name} = Module(None, {ins}, {outs})'
+    out_file.write(p[0])
     return p
 
 
 def p_ports_declaration(p):
     '''ports_declaration : OB inputs CB
-       inputs : inputs COM input
-              | input
-       input : io SIZE ID
-             | io ID
-       io : INPUT
-          | OUTPUT
-          | INOUT
     '''
+    p[0] = p[2]
+    return p
+
+
+def p_inputs(p):
+    '''inputs : inputs COM input
+              | input'''
+    if len(p) == 4:
+        ins, outs = p[1]
+        new_input = p[3]
+        input_type, _ = new_input
+        if input_type == 'input':
+            ins.append(new_input)
+            p[0] = [ins, outs]
+        elif input_type == 'output':
+            outs.append(new_input)
+            p[0] = [ins, outs]
+        else:
+            raise Exception()
+        return p
+    elif len(p) == 2:
+        input_type, _ = p[1]
+        if input_type == 'input':
+            p[0] = [[p[1]], []]
+            return p
+        elif input_type == 'output':
+            p[0] = [[], [p[1]]]
+            return p
+        else:
+            raise Exception()
+    else:
+        raise Exception()
+
+
+def p_input(p):
+    '''input : io SIZE ID
+             | io ID
+    '''
+    if len(p) == 3:
+        p[0] = (p[1], p[2])
+    else:
+        raise Exception()
+
+    return p
+
+
+def p_io(p):
+    '''io : INPUT
+          | OUTPUT'''
+    p[0] = p[1]
     return p
 
 
@@ -320,53 +368,19 @@ precedence = (
 # dictionary of names
 names = {}
 
+
+def prepare_imports(file):
+    file.write('from verilogstructures import *\n')
+
+
 if __name__ == '__main__':
     lexer = lex.lex()
 
-    data = '''
-module toplevel(input clock, input reset);
-
-  // comment value
-
-  reg flop1;
-  reg flop2;
-
-  always @ (posedge clock)
-    if (reset)
-      begin
-        flop1 <= 0;
-        flop2 <= 1;
-      end
-    else
-      begin
-        flop1 <= flop2;
-        flop2 <= flop1;
-      end
-endmodule
-     '''
-
-    data_2 = '''
-    module DELAY
-// sample comment
-( input clk,
-    input ce,
-    input [7:0] X,    
-    output [7:0] Y
-);
-  
-1`b0
-reg [7:0] val = 0;
-always @(posedge clk)
-begin
-    if (ce) val<=X;
-    else val<=val;
-end
-assign Y=val;
-endmodule
-    '''
-
     # Give the lexer some input
-    lexer.input(data_2)
+    with open('Acc.txt', 'r') as f:
+        lines = f.readlines()
+        file = ''.join(lines)
+        lexer.input(file)
 
     l_tok = []
 
@@ -375,8 +389,25 @@ endmodule
         tok = lexer.token()
         if not tok:
             break  # No more input
-        print(tok)
+        # print(tok)
         l_tok.append(tok)
 
-    parser = yacc.yacc()
-    parser.parse(data_2)
+    with open('tmp.py', 'w') as f:
+        out_file = f
+
+        parser = yacc.yacc()
+        parser.parse(file)
+
+    with open('tmp.py', 'r') as tmp_in:
+        lines = tmp_in.readlines()
+        lines.reverse()
+
+        processed_lines = [f'{lines[0]}\n']
+        for line in lines[1:]:
+            processed_lines.append(f'{module_name}{line}')
+
+        with open('out.py', 'w') as out:
+            prepare_imports(out)
+            out.writelines(processed_lines)
+
+    os.remove('tmp.py')
