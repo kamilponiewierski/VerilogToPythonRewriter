@@ -4,11 +4,44 @@ Created on Mon Jun  6 18:42:36 2022
 
 @author: igor
 """
-from typing import Dict, Tuple
+from typing import Dict
 
 
-def synch_assign(left_side, right_side):
-    left_side[:] = right_side[:]
+def synch_assign(left_side, right_side, arguments=None):
+    if arguments is None:
+        left_side[:] = right_side[:]
+    else:
+        left_side[:] = binary_operator(*arguments)
+
+
+def condition(arg1, operator=None, arg2=None) -> bool:
+    if operator is None:
+        return bool(arg1)
+    elif operator == ">":
+        return arg1 > arg2
+    elif operator == "<":
+        return arg1 < arg2
+    elif operator == "==":
+        return arg1 == arg2
+    elif operator == ">=":
+        return arg1 >= arg2
+    elif operator == "<=":
+        return arg1 <= arg2
+
+
+def binary_operator(arg1, operator, arg2):
+    if operator == "-":
+        return [arg1[0] - arg2[0]]
+    elif operator == "+":
+        return [arg1[0] + arg2[0]]
+    elif operator == "&":
+        return int(arg1 and arg2)
+    elif operator == "|":
+        return int(arg1 or arg2)
+
+
+def tenary_operator(condition_args, true_proceedings, false_proceedings):
+    return true_proceedings if condition(*condition_args) else false_proceedings
 
 
 class SynchronousBlock:
@@ -26,30 +59,36 @@ class SynchronousBlock:
         self.functions = []
         self.parameters = []
 
-    def proceed(self) -> bool:
+    def procced(self) -> bool:
         t = False
-        # for signal, Bsignal in zip(self.sensitivity_list, self._sensitivity_list_previous):
-        #     if signal != Bsignal:
-        #         t = True
+        for signal, Bsignal in zip(self.sensitivity_list, self._sensitivity_list_previous):
+            try:
+                if signal != Bsignal:
+                    t = True
+            except:
+                if [signal] != Bsignal:
+                    t = True
 
         for signal, Bsignal in zip(self.posedge_signals, self._posedge_signals_previous):
-
             try:
                 if signal > Bsignal:
                     t = True
             except:
                 if [signal] > Bsignal:
                     t = True
-        # for signal, Bsignal in zip(self.negedge_signals, self._negedge_signals_previous):
-        #     if signal < Bsignal:
-        #         t =  True
-
+        for signal, Bsignal in zip(self.negedge_signals, self._negedge_signals_previous):
+            try:
+                if signal < Bsignal:
+                    t = True
+            except:
+                if [signal] > Bsignal:
+                    t = True
         return t
 
     def tick(self):
         self.posedge_signals = self.pes[0]
 
-        z = self.proceed()
+        z = self.procced()
         if z:
             self.body()
 
@@ -68,14 +107,11 @@ class SynchronousBlock:
 
 class Wire:
 
-    def __init__(self, size: int, channels: int = 1):
+    def __init__(self, size: int, channels: int = 1, value=0):
         self.size = size
         self.channels = channels
-        self.wire = [0 for _ in range(self.size)]
+        self.wire = [value for _ in range(self.size)]
         # self.wire = [[0 for _ in range(self.size)] for _ in range(self.channels)]
-
-    def wire_connect(self):
-        pass
 
 
 class Register:
@@ -113,13 +149,6 @@ class Module:
     def add_synchronous_block(self, block):
         self.synchronous_block = block
 
-    # def add_synchronous_block(self, sensitivity_list_names, posedge_names, negedge_names):
-    #     sl = [wire.wire for name, wire in self.module_wires if name in sensitivity_list_names]
-    #     pl = [wire.wire for name, wire in self.module_wires if name in posedge_names]
-    #     nl = [wire.wire for name, wire in self.module_wires if name in negedge_names]
-
-    #     self.synchronous_block = SynchronousBlock(sl, pl, nl)       
-
     def add_wire(self, wire_name: str, wire: Wire):
         self.module_wires[wire_name] = wire
 
@@ -131,17 +160,29 @@ class Module:
             module.module_wires[port].wire[0] = self.module_wires[wire].wire[0]
         self.module_modules[module_name] = module
 
-    def assign(self, name_left, name_right):
-        self.module_left_side += (self.module_wires[name_left].wire,)
-        if name_right in self.module_registers.keys():
-            self.module_right_side += (self.module_registers[name_right].register,)
-        elif name_right in self.module_wires.keys():
-            self.module_right_side += (self.module_wires[name_right].wire,)
+    def assign(self, name_left, name_right, tenary_args=None):
+        if tenary_args is None:
+            self.module_left_side += (self.module_wires[name_left].wire,)
+            if name_right in self.module_registers.keys():
+                self.module_right_side += (self.module_registers[name_right].register,)
+            elif name_right in self.module_wires.keys():
+                self.module_right_side += (self.module_wires[name_right].wire,)
+        else:
+            self.module_left_side += (self.module_wires[name_left].wire,)
+            self.module_right_side += (tenary_args,)
 
     def step(self):
-        self.synchronous_block.tick()
-        for l, r in zip(self.module_left_side, self.module_right_side):
-            l[0] = r[0]
+        if self.synchronous_block is not None:
+            self.synchronous_block.tick()
+
+        for l_side, r in zip(self.module_left_side, self.module_right_side):
+            try:
+                l_side[0] = tenary_operator(
+                    (self.module_wires[r[0][0]].wire[0], r[0][1], self.module_wires[r[0][2]].wire[0]),
+                    self.module_wires[r[1]].wire[0],
+                    self.module_wires[r[2]].wire[0])
+            except:
+                l_side[0] = r[0]
 
     def behavioral_simulation(self, steps: int, input_wires_signals):
         result = []
@@ -149,23 +190,5 @@ class Module:
             for key, value in input_wires_signals.items():
                 self.module_wires[key].wire[0] = value[i]
             self.step()
-            print(self.module_wires["Y"].wire[0])
-            # print(self.module_registers["acc"].register[0])
-
-
-input_wires = {
-    "clk": [0, 1, 0, 1, 0, 1, 0, 1],
-    "X": [0, 0, 1, 1, 0, 0, 0, 0]
-}
-
-delay = Module(None, {"X": Wire(1), "clk": Wire(1)}, {"Y": Wire(1)})
-delay.add_register("acc", Register(1))
-
-SB = SynchronousBlock([], [delay.module_wires["clk"].wire], [])
-SB.add_procedure(synch_assign, (delay.module_registers["acc"].register, delay.module_wires["X"].wire))
-
-delay.add_synchronous_block(SB)
-
-delay.assign("Y", "acc")
-
-delay.behavioral_simulation(8, input_wires)
+            result.append([self.module_wires[key].wire[0] for key, value in self.outputs.items()])
+        return result

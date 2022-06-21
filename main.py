@@ -1,8 +1,12 @@
+import re
+
 import ply.yacc as yacc
 from ply import lex
 from ply.lex import TOKEN
 
 from tokens_out_processed import reserved_keywords, get_tokens
+
+error_formatting = '\033[1;41m'
 
 reserved = reserved_keywords()
 tokens = list(get_tokens()) + list(reserved.values())
@@ -41,16 +45,20 @@ ID = r'[a-zA-Z_][a-zA-Z_0-9]*'
 concatenation_body = r'(' + ID + t_COM + 'r)*' + ID + r'|(0-9)* ' + t_OWB + ID + t_CWB + ')'
 
 comment = t_SLASH + t_SLASH + r'.*'
-size = r'[(0-9)+:(0-9)+]'
+size = r'\[(0-9)+:(0-9)+\]'
 number = r'(-|\+)?[0-9]*`((b)([0-1])|(o)([0-7])*|(d)([0-9])*|(h)([0-9|a-f|A-F])*)'
+integer = r'[0-9]+'
 
 
 def t_error(t):
-    print("Illegal character '%s'" % t.value[0])
+    print(f"{error_formatting}Illegal character '%s'" % t.value[0])
     t.lexer.skip(1)
 
 
 t_ignore = ' \t'
+
+module_name = ""
+start = 'module_declaration'
 
 
 @TOKEN(bin_operator)
@@ -74,9 +82,20 @@ def t_COMMENT(t):
     return t
 
 
-@TOKEN(size)
-def t_SIZE(t):
+@TOKEN(integer)
+def t_INTEGER(t):
     return t
+
+
+# @TOKEN(size)
+# def t_SIZE(t):
+#     return t
+
+
+def p_SIZE(p):
+    '''SIZE : OSB INTEGER CLN INTEGER CSB
+    '''
+    return p
 
 
 def t_newline(t):
@@ -105,6 +124,7 @@ def p_condition(p):
                   | LT EQ
                   | EM EQ
     '''
+    p[0] = f'condition({p[1]}, {p[2]}, {p[3]})'
     return p
 
 
@@ -113,7 +133,14 @@ def p_value(p):
              | NOT value
              | NUMBER
              | ID
-             | OB value CB'''
+             | OB value CB
+             | ternary_operator
+    '''
+    if len(p) == 3 and re.match(bin_operator, p[2]):
+        p[0] = f'binary_operator({p[1]}, {p[2]}, {p[3]})'
+    else:
+        # TODO
+        pass
     return p
 
 
@@ -140,16 +167,9 @@ def p_synch_stmt(p):
                   | content SCLN
        content : initial_stmt
                | reg_assign
-               | tenary_operator
-               | Wait
+               | ternary_operator
     '''
     return p
-
-
-def p_reg_assign(p):
-    '''reg_assign : ID SYNCH_ASSIGN ID
-                  | ID SYNCH_ASSIGN value
-    '''
 
 
 def p_synch_stmts(p):
@@ -159,22 +179,53 @@ def p_synch_stmts(p):
     return p
 
 
-def p_wire_declaraion(p):
+def p_wire_declaration(p):
     '''wire_declaration : WIRE ID
     '''
+    p[0] = f'{module_name}.add_wire({p[2]}, Wire(1))'
+    return p
+
+
+# TODO
+def p_wire_assign(p):
+    '''wire_assign : ASSIGN ID EQ wire_assignable
+       wire_assignable : ID
+                       | value
+    '''
+    p[0] = f'{module_name}.assign({p[0]}, assignable)'
     return p
 
 
 def p_reg_declaration(p):
     '''reg_declaration : REG ID
     '''
+
+    x = f'{module_name}.add_register(ID, Register(1))'
     return p
 
 
-def p_tenary_operator(p):
-    '''tenary_operator : OB condition CB QM value CLN value
+def p_reg_assign(p):
+    '''reg_assign : ID SYNCH_ASSIGN reg_assignable
+       reg_assignable : ID
+                      | value
     '''
-    p[0] = f'if ({p[2]}):\n\t{p[5]}\nelse:\n\t{p[7]}'
+    x = f'{module_name}.synchronous_block.add_procedure(synch_assign, (ID, assignable))'
+    return p
+
+
+def p_ternary_operator(p):
+    '''ternary_operator : OB condition CB QM value CLN value
+    '''
+    p[0] = f'ternary_operator({p[2]}, {p[5]}, {p[7]})'
+    return p
+
+
+def p_declaration(p):
+    '''declaration : wire_declaration
+                   | reg_declaration
+
+                   '''
+    # TODO | local_param_declaration ?
     return p
 
 
@@ -184,33 +235,61 @@ def p_body(p):
             | part
             | empty
        part : declaration
-            | Synch_part
-            | Asynch_part
+            | synch_part
+            | asynch_part
             | COMMENT
+    '''
+    return p
+
+
+def p_synch_part(p):
+    '''synch_part : ALWAYS at_part synch_part_body
+       synch_part_body : BEGIN synch_stmts END
+                       | synch_stmt
+       at_part : AT OB at_assignment ID CB
+       at_assignment : posnegedge
+                     | value
+       posnegedge : POS EDGE
+                  | NEG EDGE
+    '''
+    return p
+
+
+def p_asynch_statement(p):
+    '''asynch_statement : asynch_body SCLN COMMENT
+                        | asynch_body SCLN
+       asynch_body : wire_assign
+                   | ternary_operator
+    '''
+
+    return p
+
+
+def p_asynch_part(p):
+    '''asynch_part : asynch_part asynch_statement
+                   | asynch_statement
     '''
     return p
 
 
 def p_module_declaration(p):
     '''module_declaration : MODULE ID body ENDMODULE
-                          | MODULE ID optional_module_parameters body ENDMODULE
-       optional_module_parameters : parameters_declaration ports_declaration
-                                  | parameters_declaration
-                                  | ports_declaration
-
+                          | MODULE ID ports_declaration body ENDMODULE
     '''
+    global module_name
+    module_name = p[2]
     return p
 
 
 def p_ports_declaration(p):
     '''ports_declaration : OB inputs CB
+       inputs : inputs COM input
+              | input
+       input : io SIZE ID
+             | io ID
        io : INPUT
           | OUTPUT
           | INOUT
-       input : io SIZE ID
-             | io ID
-       inputs : inputs COM input
-              | input
     '''
     return p
 
@@ -222,19 +301,11 @@ def p_empty(p):
 
 def p_error(p):
     if p:
-        print("Syntax error at token", p.type)
+        print(f"{error_formatting}Syntax error at token {p.type}, line {p.lexer.lineno}")
         # Just discard the token and tell the parser it's okay.
         parser.restart()
     else:
-        print("Syntax error at EOF")
-
-
-def p_term_wire_declaration(p):
-    '''term_wire_declaration : WIRE opt_size ID opt_size
-       opt_size : SIZE
-                | empty
-    '''
-    return p
+        print(f"{error_formatting}Syntax error at EOF")
 
 
 def p_assign(p):
@@ -242,7 +313,9 @@ def p_assign(p):
     return p
 
 
-precedence = ()
+precedence = (
+
+)
 
 # dictionary of names
 names = {}
@@ -251,15 +324,14 @@ if __name__ == '__main__':
     lexer = lex.lex()
 
     data = '''
-module toplevel(clock,reset);
-  input clock;
-  input reset;
+module toplevel(input clock, input reset);
+
   // comment value
 
   reg flop1;
   reg flop2;
 
-  always @ (posedge reset or posedge clock)
+  always @ (posedge clock)
     if (reset)
       begin
         flop1 <= 0;
@@ -276,8 +348,7 @@ endmodule
     data_2 = '''
     module DELAY
 // sample comment
-(
-    input clk,
+( input clk,
     input ce,
     input [7:0] X,    
     output [7:0] Y
@@ -304,14 +375,8 @@ endmodule
         tok = lexer.token()
         if not tok:
             break  # No more input
-        # print(tok)
+        print(tok)
         l_tok.append(tok)
 
     parser = yacc.yacc()
-
-    # while l_tok:
-    #     try:
-    #         s = l_tok.pop()  # Use raw_input on Python 2
-    #     except EOFError:
-    #         break
-    #     parser.parse(s)
+    parser.parse(data_2)

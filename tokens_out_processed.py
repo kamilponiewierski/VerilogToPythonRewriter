@@ -64,10 +64,10 @@ def get_tokens():
         'COMMENT',
         'ID',
         'NUMBER',
-        'SIZE',
         'BIN_OPERATOR',
         'CONCATENATION_BODY',
         'SYNCH_ASSIGN',
         'COMPARISON_SYMBOL',
+        'INTEGER',
     )
     return tokens
