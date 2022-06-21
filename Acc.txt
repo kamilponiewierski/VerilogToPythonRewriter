@@ -1,0 +1,32 @@
+//////////////////////////////////////////////////////////////////////////////////
+// Company: 
+// Engineer: 
+// 
+// Create Date: 05/17/2022 04:45:04 PM
+// Design Name: 
+// Module Name: ACC
+// Project Name: 
+// Target Devices: 
+// Tool Versions: 
+// Description: 
+// 
+// Dependencies: 
+// 
+// Revision:
+// Revision 0.01 - File Created
+// Additional Comments:
+// 
+//////////////////////////////////////////////////////////////////////////////////
+
+
+module ACC(input clk, input X, output Y);
+		
+reg acc;
+
+always @(posedge clk) begin
+	acc <= acc + X;
+end
+
+assign Y = acc;
+
+endmodule
