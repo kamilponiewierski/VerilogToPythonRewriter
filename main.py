@@ -5,109 +5,20 @@ import ply.yacc as yacc
 from ply import lex
 from ply.lex import TOKEN
 
-from tokens_out_processed import reserved_keywords, get_tokens
+import lexer
+from lexer import bin_operator, tokens
 
 error_formatting = '\033[1;41m'
-
-reserved = reserved_keywords()
-tokens = list(get_tokens()) + list(reserved.values())
-t_SEP = r'`'
-t_HASH = r'\#'
-t_SLASH = r'\/'
-t_DOT = r'\.'
-t_COM = r','
-t_AND = r'&'
-t_AT = r'@'
-t_DOL = r'\$'
-t_EM = r'!'
-t_QM = r'\?'
-t_NOT = r'~'
-t_OR = r'\|'
-t_OSB = r'\['
-t_CSB = r'\]'
-t_OB = r'\('
-t_CB = r'\)'
-t_OWB = r'\{'
-t_CWB = r'\}'
-t_PLUS = r'\+'
-t_MINUS = r'-'
-t_TIMES = r'\*'
-t_CLN = r':'
-t_SCLN = r';'
-t_EQ = r'='
-t_LT = r'<'
-t_GT = r'>'
-synch_assign = r'(' + t_LT + t_EQ + r')'
-bin_operator = r'(' + t_OR + r'|' + t_AND + r'|' + t_PLUS + r'|' + t_MINUS + r'|' + t_TIMES + r')'
-comparison_symbol = r'(' + t_EQ + t_EQ + r'|' + t_GT + r'|' + t_LT + r'|' + t_GT + t_EQ + \
-                    r'|' + t_LT + t_EQ + '|' + t_EM + t_EQ + r')'
-ID = r'[a-zA-Z_][a-zA-Z_0-9]*'
-# TODO
-concatenation_body = r'(' + ID + t_COM + 'r)*' + ID + r'|(0-9)* ' + t_OWB + ID + t_CWB + ')'
-
-comment = t_SLASH + t_SLASH + r'.*'
-size = r'\[(0-9)+:(0-9)+\]'
-number = r'(-|\+)?[0-9]*`((b)([0-1])|(o)([0-7])*|(d)([0-9])*|(h)([0-9|a-f|A-F])*)'
-integer = r'[0-9]+'
-
-
-def t_error(t):
-    print(f"{error_formatting}Illegal character '%s'" % t.value[0])
-    t.lexer.skip(1)
-
-
-t_ignore = ' \t'
 
 module_name = ""
 out_file = None
 start = 'module_declaration'
 
 
-@TOKEN(bin_operator)
-def t_BIN_OPERATOR(t):
-    return t
-
-
-@TOKEN(ID)
-def t_ID(t):
-    t.type = reserved.get(t.value, 'ID')  # Check for reserved words
-    return t
-
-
-def t_CONCATENATION_BODY(t):
-    r'(ID COM)* ID | (0-9)* OWB ID CWB'
-    return t
-
-
-@TOKEN(comment)
-def t_COMMENT(t):
-    pass
-
-
-@TOKEN(integer)
-def t_INTEGER(t):
-    return t
-
-
 def p_SIZE(p):
     '''SIZE : OSB INTEGER CLN INTEGER CSB
     '''
     return p
-
-
-def t_newline(t):
-    r'\n+'
-    t.lexer.lineno += len(t.value)
-
-
-@TOKEN(number)
-def t_NUMBER(t):
-    return t
-
-
-@TOKEN(synch_assign)
-def t_SYNCH_ASSIGN(t):
-    return t
 
 
 # Parsing rules
@@ -139,11 +50,6 @@ def p_value(p):
     else:
         p[0] = p[1]
     return p
-
-
-@TOKEN(comparison_symbol)
-def t_COMPARISON_SYMBOL(t):
-    return t
 
 
 def p_synch_stmt(p):
@@ -422,23 +328,13 @@ def prepare_imports(filename):
 
 
 if __name__ == '__main__':
-    lexer = lex.lex()
+    lexer = tokens_out_processed.lexer
 
     # Give the lexer some input
-    with open('relu.txt', 'r') as f:
+    with open('fail_2.txt', 'r') as f:
         lines = f.readlines()
         file = ''.join(lines)
         lexer.input(file)
-
-    l_tok = []
-
-    # Tokenize
-    while True:
-        tok = lexer.token()
-        if not tok:
-            break  # No more input
-        # print(tok)
-        l_tok.append(tok)
 
     with open('tmp.py', 'w') as f:
         out_file = f
