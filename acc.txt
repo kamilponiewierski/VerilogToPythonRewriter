@@ -4,7 +4,7 @@
 //
 // Create Date: 05/17/2022 04:45:04 PM
 // Design Name:
-// Module Name: ReLU
+// Module Name: ACC
 // Project Name:
 // Target Devices:
 // Tool Versions:
@@ -19,10 +19,17 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 
-module ReLU(input X, output Y);
+module ACC(input clk, input X, output Y);
 		
-wire zero;
-assign zero = 0;
-assign Y = X > 0 ? X : 0;
+
+
+always @(posedge clk) begin
+	acc <= acc + X;
+end
+
+
+assign Y = acc;
+
+reg acc;
 
 endmodule

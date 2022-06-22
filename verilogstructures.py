@@ -9,7 +9,10 @@ from typing import Dict
 
 def synch_assign(left_side, right_side, arguments=None):
     if arguments is None:
-        left_side[:] = right_side[:]
+        try:
+            left_side[:] = right_side[:]
+        except:
+            left_side[:] = right_side
     else:
         left_side[:] = binary_operator(*arguments)
 
@@ -40,7 +43,7 @@ def binary_operator(arg1, operator, arg2):
         return int(arg1 or arg2)
 
 
-def tenary_operator(condition_args, true_proceedings, false_proceedings):
+def ternary_operator(condition_args, true_proceedings, false_proceedings):
     return true_proceedings if condition(*condition_args) else false_proceedings
 
 
@@ -161,6 +164,8 @@ class Module:
         self.module_modules[module_name] = module
 
     def assign(self, name_left, name_right, tenary_args=None):
+        if isinstance(name_right, int) or isinstance(name_right, float):
+            self.module_wires[name_left].wire[0] = name_right
         if tenary_args is None:
             self.module_left_side += (self.module_wires[name_left].wire,)
             if name_right in self.module_registers.keys():

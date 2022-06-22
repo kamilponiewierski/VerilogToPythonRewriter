@@ -1,0 +1,8 @@
+module delay( input clk, input X, output Y);
+
+always @(posedge clk) begin
+ac <=X;
+end
+assign Y = ac;
+reg ac;
+endmodule

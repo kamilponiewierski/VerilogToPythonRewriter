@@ -118,16 +118,13 @@ def t_SYNCH_ASSIGN(t):
 # Parsing rules
 def p_condition(p):
     '''condition : value comparison value
-                  | value
-       comparison : EQ EQ
-                  | GT
-                  | LT
-                  | GT EQ
-                  | LT EQ
-                  | EM EQ
+                 | value
+       comparison : COMPARISON_SYMBOL
     '''
-    p[0] = f'condition({p[1]}, {p[2]}, {p[3]})\n'
-    out_file.write(p[0])
+    if len(p) == 4:
+        p[0] = f'condition({p[1]}, "{p[2]}", {p[3]})'
+    else:
+        p[0] = p[1]
     return p
 
 
@@ -138,11 +135,12 @@ def p_value(p):
              | ID
              | OB value CB
              | ternary_operator
+             | INTEGER
     '''
-    if len(p) == 3 and re.match(bin_operator, p[2]):
-        p[0] = f'binary_operator({p[1]}, {p[2]}, {p[3]})\n'
-        out_file.write(p[0])
-
+    if len(p) == 4 and re.match(bin_operator, p[2]):
+        p[0] = f'binary_operator({p[1]}, "{p[2]}", {p[3]})'
+    elif p.slice[1].type == 'ID':
+        p[0] = f'"{p[1]}"'
     else:
         p[0] = p[1]
     return p
@@ -158,6 +156,7 @@ def p_synch_stmt(p):
        content : reg_assign
                | ternary_operator
     '''
+    p[0] = p[1]
     return p
 
 
@@ -165,13 +164,17 @@ def p_synch_stmts(p):
     '''synch_stmts : synch_stmts synch_stmt
                    | synch_stmt
     '''
+    if len(p) == 2:
+        p[0] = [p[1]]
+    elif len(p) == 3:
+        p[0] = [*p[1], p[2]]
     return p
 
 
 def p_wire_declaration(p):
-    '''wire_declaration : WIRE ID
+    '''wire_declaration : WIRE ID SCLN
     '''
-    p[0] = f'{module_name}.add_wire({p[2]}, Wire(1))'
+    p[0] = f'{module_name}.add_wire("{p[2]}", Wire(1))\n'
     out_file.write(p[0])
     return p
 
@@ -180,7 +183,7 @@ def p_wire_declaration(p):
 def p_wire_assign(p):
     '''wire_assign : ASSIGN ID EQ wire_assignable
     '''
-    p[0] = f'{module_name}.assign("{p[2]}", "{p[4]}")\n'
+    p[0] = f'{module_name}.assign("{p[2]}", {p[4]})\n'
     out_file.write(p[0])
     return p
 
@@ -206,14 +209,17 @@ def p_reg_assign(p):
        reg_assignable : ID
                       | value
     '''
-    x = f'{module_name}.synchronous_block.add_procedure(synch_assign, (ID, assignable))'
+    if len(p) == 4 and p.slice[2].type == 'SYNCH_ASSIGN':
+        p[0] = f'{module_name}.synchronous_block.add_procedure(synch_assign, ("{p[1]}", {p[3]}))'
+    else:
+        p[0] = p[1]
     return p
 
 
 def p_ternary_operator(p):
     '''ternary_operator : OB condition CB QM value CLN value
     '''
-    p[0] = f'ternary_operator({p[2]}, {p[5]}, {p[7]})\n'
+    p[0] = f'ternary_operator({p[2]}, {p[5]}, {p[7]})'
     return p
 
 
@@ -235,28 +241,69 @@ def p_body(p):
             | synch_part
             | asynch_part
     '''
+    p[0] = p[1]
     return p
 
 
 def p_synch_part(p):
     '''synch_part : ALWAYS at_part synch_part_body
-       synch_part_body : BEGIN synch_stmts END
-                       | synch_stmt
-       at_part : AT OB at_assignment ID CB
-       at_assignment : posnegedge
-                     | value
-       posnegedge : POS EDGE
-                  | NEG EDGE
     '''
+    val_list = []
+    pos_list = []
+    neg_list = []
+
+    if p.slice[2].value[0] == '"posedge"':
+        pos_list.append(p.slice[2].value[1])
+    elif p.slice[2].value[0] == '"negedge"':
+        neg_list.append(p.slice[2].value[1])
+    else:
+        val_list.append(p.slice[2].value[1])
+    
+    synch_block_declaration = f"{module_name}.add_synchronous_block(SynchronousBlock({val_list}, {pos_list}, {neg_list}))"
+    value = [synch_block_declaration, *p.slice[3].value]
+    value.reverse()
+
+    p[0] = '\n'.join(value)
+    out_file.write(p[0] + '\n')
     return p
 
+
+def p_synch_part_body(p):
+    '''synch_part_body : BEGIN synch_stmts END
+                       | synch_stmt'''
+    if len(p) == 4:
+        p[0] = p[2]
+    elif len(p) == 2:
+        p[0] = [p[1]]
+    else:
+        raise Exception()
+    return p
+    
+def p_at_part(p):
+    '''at_part : AT OB at_assignment ID CB
+    '''
+    p[0] = (p[3], p[4])
+    return p
+
+def p_at_assignment(p):
+    '''at_assignment : posnegedge
+                     | value'''
+    p[0] = p[1]
+    return p
+
+def p_pos_neg_edge(p):
+    '''posnegedge : POS EDGE
+                  | NEG EDGE
+    '''
+    p[0] = p[1]
+    return p
 
 def p_asynch_statement(p):
     '''asynch_statement : asynch_body SCLN
        asynch_body : wire_assign
                    | ternary_operator
     '''
-
+    p[0] = p[1]
     return p
 
 
@@ -377,7 +424,7 @@ if __name__ == '__main__':
     lexer = lex.lex()
 
     # Give the lexer some input
-    with open('Acc.txt', 'r') as f:
+    with open('delay.txt', 'r') as f:
         lines = f.readlines()
         file = ''.join(lines)
         lexer.input(file)
