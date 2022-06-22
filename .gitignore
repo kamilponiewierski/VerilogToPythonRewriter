@@ -131,3 +131,6 @@ dmypy.json
 # Lexer/parser outputs
 parser.out
 parsetab.py
+
+# backups
+README.md.backup

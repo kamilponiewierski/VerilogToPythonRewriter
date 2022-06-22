@@ -1,5 +1,6 @@
 import os
 import re
+import sys
 
 import ply.yacc as yacc
 
@@ -313,14 +314,6 @@ def p_assign(p):
     return p
 
 
-precedence = (
-
-)
-
-# dictionary of names
-names = {}
-
-
 def prepare_imports(filename):
     filename.write('from verilogstructures import *\n')
 
@@ -328,11 +321,20 @@ def prepare_imports(filename):
 if __name__ == '__main__':
     lexer = lexer
 
-    # Give the lexer some input
-    with open('examples/acc.txt', 'r') as f:
-        lines = f.readlines()
-        file = ''.join(lines)
-        lexer.input(file)
+    try:
+        filename = sys.argv[1]
+    except IndexError:
+        print('Please provide path to the input file')
+        exit(1)
+
+    try:
+        with open(filename, 'r') as f:
+            lines = f.readlines()
+            file = ''.join(lines)
+            lexer.input(file)
+    except FileNotFoundError:
+        print(f'File was not found at {filename}')
+        exit(1)
 
     with open('tmp.py', 'w') as f:
         out_file = f
