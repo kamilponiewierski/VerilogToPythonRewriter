@@ -89,11 +89,6 @@ def t_INTEGER(t):
     return t
 
 
-# @TOKEN(size)
-# def t_SIZE(t):
-#     return t
-
-
 def p_SIZE(p):
     '''SIZE : OSB INTEGER CLN INTEGER CSB
     '''
@@ -258,8 +253,9 @@ def p_synch_part(p):
         neg_list.append(p.slice[2].value[1])
     else:
         val_list.append(p.slice[2].value[1])
-    
-    synch_block_declaration = f"{module_name}.add_synchronous_block(SynchronousBlock({val_list}, {pos_list}, {neg_list}))"
+
+    synch_block_declaration = f"{module_name}.add_synchronous_block(SynchronousBlock" \
+                              f"({val_list}, {pos_list}, {neg_list}))"
     value = [synch_block_declaration, *p.slice[3].value]
     value.reverse()
 
@@ -278,12 +274,14 @@ def p_synch_part_body(p):
     else:
         raise Exception()
     return p
-    
+
+
 def p_at_part(p):
     '''at_part : AT OB at_assignment ID CB
     '''
     p[0] = (p[3], p[4])
     return p
+
 
 def p_at_assignment(p):
     '''at_assignment : posnegedge
@@ -291,12 +289,14 @@ def p_at_assignment(p):
     p[0] = p[1]
     return p
 
+
 def p_pos_neg_edge(p):
     '''posnegedge : POS EDGE
                   | NEG EDGE
     '''
     p[0] = p[1]
     return p
+
 
 def p_asynch_statement(p):
     '''asynch_statement : asynch_body SCLN
@@ -389,6 +389,7 @@ def p_io(p):
     return p
 
 
+# noinspection PyUnusedLocal
 def p_empty(p):
     'empty :'
     pass
@@ -416,8 +417,8 @@ precedence = (
 names = {}
 
 
-def prepare_imports(file):
-    file.write('from verilogstructures import *\n')
+def prepare_imports(filename):
+    filename.write('from verilogstructures import *\n')
 
 
 if __name__ == '__main__':
