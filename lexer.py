@@ -115,8 +115,6 @@ def get_tokens():
     return tokens
 
 
-
-
 def t_error(t):
     print(f"{error_formatting}Illegal character '%s'" % t.value[0])
     t.lexer.skip(1)
