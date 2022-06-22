@@ -3,6 +3,7 @@ import re
 
 import ply.yacc as yacc
 
+# noinspection PyUnresolvedReferences
 from lexer import bin_operator, tokens, lexer
 
 error_formatting = '\033[1;41m'
@@ -325,10 +326,10 @@ def prepare_imports(filename):
 
 
 if __name__ == '__main__':
-    lexer = lexer.lexer
+    lexer = lexer
 
     # Give the lexer some input
-    with open('fail_2.txt', 'r') as f:
+    with open('examples/acc.txt', 'r') as f:
         lines = f.readlines()
         file = ''.join(lines)
         lexer.input(file)
