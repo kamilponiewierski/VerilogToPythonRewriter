@@ -29,5 +29,5 @@ Files prefaced with `fail` showcase error catching, both during lexing and parsi
 
 Currently, this program is able to rewrite one file at a time.
 
-To comply with Python's limitations, verilog source files must follow given order, in short, the assignments go first, followed by wire/register declarations.
+To comply with Python's limitations, Verilog files must follow given order, in short, the assignments go first, followed by wire/register declarations.
 
