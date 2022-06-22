@@ -182,7 +182,7 @@ class Module:
 
         for l_side, r in zip(self.module_left_side, self.module_right_side):
             try:
-                l_side[0] = tenary_operator(
+                l_side[0] = ternary_operator(
                     (self.module_wires[r[0][0]].wire[0], r[0][1], self.module_wires[r[0][2]].wire[0]),
                     self.module_wires[r[1]].wire[0],
                     self.module_wires[r[2]].wire[0])

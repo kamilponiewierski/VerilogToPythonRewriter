@@ -122,7 +122,7 @@ def p_condition(p):
        comparison : COMPARISON_SYMBOL
     '''
     if len(p) == 4:
-        p[0] = f'condition({p[1]}, "{p[2]}", {p[3]})'
+        p[0] = f'({p[1]}, "{p[2]}", {p[3]})'
     else:
         p[0] = p[1]
     return p
@@ -219,7 +219,7 @@ def p_reg_assign(p):
 def p_ternary_operator(p):
     '''ternary_operator : OB condition CB QM value CLN value
     '''
-    p[0] = f'ternary_operator({p[2]}, {p[5]}, {p[7]})'
+    p[0] = f'None, ({p[2]}, {p[5]}, {p[7]})'
     return p
 
 
@@ -424,7 +424,7 @@ if __name__ == '__main__':
     lexer = lex.lex()
 
     # Give the lexer some input
-    with open('delay.txt', 'r') as f:
+    with open('relu.txt', 'r') as f:
         lines = f.readlines()
         file = ''.join(lines)
         lexer.input(file)

@@ -1,6 +1,5 @@
 from verilogstructures import *
-delay = Module(None, ['clk', 'X'], ['Y'])
-delay.add_register("ac", Register(1))
-delay.assign("Y", "ac")
-delay.add_synchronous_block(SynchronousBlock([], ['clk'], []))
-delay.synchronous_block.add_procedure(synch_assign, ("ac", "X"))
+ReLU = Module(None, ['X'], ['Y'])
+ReLU.add_wire("zero", Wire(1))
+ReLU.assign("zero", 0)
+ReLU.assign("Y", None, (("X", ">", 0), "X", 0))
