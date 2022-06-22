@@ -2,11 +2,8 @@ import os
 import re
 
 import ply.yacc as yacc
-from ply import lex
-from ply.lex import TOKEN
 
-import lexer
-from lexer import bin_operator, tokens
+from lexer import bin_operator, tokens, lexer
 
 error_formatting = '\033[1;41m'
 
@@ -328,7 +325,7 @@ def prepare_imports(filename):
 
 
 if __name__ == '__main__':
-    lexer = tokens_out_processed.lexer
+    lexer = lexer.lexer
 
     # Give the lexer some input
     with open('fail_2.txt', 'r') as f:
